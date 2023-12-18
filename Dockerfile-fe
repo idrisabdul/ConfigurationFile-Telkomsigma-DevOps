@@ -1,0 +1,19 @@
+# Name the node stage "builder"
+FROM node:18.17.1-alpine AS builder
+# Set working directory
+WORKDIR /app
+# Copy all files from current directory to working dir in image 
+COPY .env .
+COPY . .
+
+# install node modules and build assets 
+RUN npm install -g pnpm
+RUN pnpm install 
+RUN pnpm run build
+
+EXPOSE 3000
+
+ENV NUXT_HOST=0.0.0.0
+ENV NUXT_PORT=3000
+
+CMD [ "node", ".output/server/index.mjs" ]
