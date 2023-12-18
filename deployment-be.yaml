@@ -1,0 +1,88 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: appname-backend-1
+  namespace: projectname
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: appname
+  template:
+    metadata:
+      labels:
+        app: appname
+    spec:
+      containers:
+      - name: appname
+        image: userdocker/appname:tagging
+        ports:
+          - containerPort: 8000
+            name: 8000tcp
+            protocol: TCP
+        envFrom:
+        - configMapRef:
+            name: appname-prop
+      dnsConfig:
+        nameservers:
+          - 8.8.8.8
+          - 8.8.4.4
+      
+      imagePullSecrets:
+      - name: crederm    //sesuaikan dengan imagepullsecret yang dibuat dirancher
+
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: appname-beat-worker-1
+  namespace: projectname
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: appname-worker-1
+  template:
+    metadata:
+      labels:
+        app: appname-worker-1
+    spec:
+      containers:
+      - name: appname-worker-1
+        image: userdocker/appname:tagging
+        command:
+          - "/bin/sh"
+          - "-c"
+          - "celery -A rms_backend beat -l info & celery -A rms_backend worker -l info"   // ubah rms_backend sesuai dengan yg ada di docker-compose.yml di entrypoint celery
+        ports:
+          - containerPort: 8000
+            name: 8000tcp
+            protocol: TCP
+        envFrom:
+        - configMapRef:
+            name: appname-prop
+      dnsConfig:
+        nameservers:
+          - 8.8.8.8
+          - 8.8.4.4
+      imagePullSecrets:
+      - name: crederm   // sesuaikan dengan imagepullsecret yang dibuat dirancher
+
+      
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: appname-service
+  namespace: projectname
+  labels:
+    app: appname
+spec:
+  type: NodePort
+  ports:
+  - nodePort: 31101    //sesuaikan dengan port yg tersedia
+    port: 3035
+    protocol: TCP
+    targetPort: 8000
+  selector:
+    app: appname
