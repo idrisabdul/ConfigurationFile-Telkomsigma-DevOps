@@ -1,0 +1,46 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: appname
+  namespace: projectname
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: appname
+  template:
+    metadata:
+      labels:
+        app: appname
+    spec:
+      containers:
+      - name: appname
+        image: userdocker/appname:tagging
+        ports:
+          - containerPort: 3000
+            name: 3000tcp
+            protocol: TCP
+        env:
+          - name: NUXT_BASE_URL_PUBLIC
+            value: https://url
+      
+      imagePullSecrets:
+      - name: crederm  // sesuaikan dengan imagepullsecret yang dibuat dirancher
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: appname-service
+  namespace: projectname
+  labels:
+    app: appname
+spec:
+  type: NodePort
+  ports:
+  - nodePort: 31100   // sesuaikan dengan port yg tersedia
+    port: 3000
+    protocol: TCP
+    targetPort: 3000
+  selector:
+    app: appname
+
