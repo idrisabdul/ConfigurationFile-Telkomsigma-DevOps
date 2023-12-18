@@ -1,0 +1,30 @@
+FROM python:3.11-slim-bullseye
+
+ENV PYTHONUNBUFFERED 1
+ENV DJANGO_SETTINGS_MODULE rms_backend.settings
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y netcat \
+    nano \ 
+    iputils-ping
+
+COPY requirements.txt /app/
+
+RUN pip install -r requirements.txt
+
+RUN pip freeze
+
+COPY . .
+
+EXPOSE 8000
+
+RUN ls -lah
+
+COPY ./entrypoint.sh /entrypoint.sh
+
+COPY ./entrypoint_beat_worker.sh /entrypoint_beat_worker.sh
+
+RUN chmod +x /entrypoint.sh
+
+ENTRYPOINT ["bash", "/entrypoint.sh"]
