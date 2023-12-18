@@ -1,0 +1,97 @@
+def buildNumber = env.BUILD_NUMBER as int
+if (buildNumber > 1) milestone(buildNumber - 1)
+milestone(buildNumber) 
+
+def now = new Date()
+
+def secrets = [
+  [path: 'secrets/creds/env_tma', engineVersion: 1, secretValues: [
+    [vaultKey: 'NUXT_MODE'],
+    [vaultKey: 'NUXT_TOKEN_EXPIRES_IN_PUBLIC'],
+    [vaultKey: 'RECAPTCHA_SITE_KEY'],
+    [vaultKey: 'RECAPTCHA_SECRET_KEY'],
+    [vaultKey: 'NUXT_BASE_URL_PUBLIC'],
+  ]],
+]
+
+def configuration = [vaultUrl: 'http://localhost:8200',  vaultCredentialId: 'root-vault', engineVersion: 1]
+
+pipeline {
+
+  agent any 
+
+  tools {nodejs "NodeJS"}
+
+  environment {
+      userregistry = 'idrissigma'
+      tagging = now.format("yyyyMMdd"+"_"+"HHmm")
+      appname = "be-erm" //name aplikasinya BE/FE
+      projectname = "erm-dev" //nama projectnya
+  }
+
+  stages {
+      stage('Clone Repo') {
+          steps {
+              git branch: 'development', credentialsId: 'user-gitlab', url: 'http://127.0.0.1:8182/erm/be-erm.git'                
+          }
+      }
+
+      stage('SonarQube analysis') {
+          steps {
+              script {
+              def scannerHome = tool 'SonarQubeScanner';
+              withSonarQubeEnv('sonarqube-jsc') {
+                  sh "${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=${appname} -Dsonar.projectName=${appname} -Dsonar.python.version=3 -Dsonar.python.coverage.reportPaths=coverage.xml" 
+                  }
+              }
+          }
+      }
+
+
+      stage("Quality Gate") {
+          steps {
+            timeout(time: 1, unit: 'HOURS') {
+              waitForQualityGate abortPipeline: true
+            }
+          }
+      }
+
+      stage('Docker Build') {
+          steps {
+              sh "docker build -t ${userregistry}/${appname}:${tagging} ." 
+          }
+      }
+
+      stage('Docker Push') {
+          steps {
+              sh "docker push ${userregistry}/${appname}:${tagging}"
+          }
+      }
+      
+      stage('Docker Remove Image') {
+          steps {
+              sh "docker rmi ${userregistry}/${appname}:${tagging}"
+          }
+      }
+
+      stage('K3S Deployment') {
+          steps {
+              // withVault([configuration: configuration, vaultSecrets: secrets]) {
+                  sh "sed -i 's/userdocker/${userregistry}/g' deployment.yaml"
+                  sh "sed -i 's/tagging/${tagging}/g' deployment.yaml"
+                  sh "sed -i 's/appname/${appname}/g' deployment.yaml"
+                  sh "sed -i 's/projectname/${projectname}/g' deployment.yaml"
+                  
+                  
+                  // change env
+                  // sh "sed -i 's/url/${NUXT_BASE_URL_PUBLIC}/g' deployment.yaml"
+                  sh '''
+                      docker cp deployment.yaml 19e0d153d5a2:/home/
+                      docker exec rancher cat /home/deployment.yaml
+                      docker exec rancher kubectl apply -f /home/deployment.yaml -n ${projectname}  
+                  '''
+              // }      
+          }
+      }
+  }
+}
