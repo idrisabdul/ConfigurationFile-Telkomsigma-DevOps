@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: backend-categorization-ingress
+  annotations:
+    ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: api.idris.local // sesuaikan nama host
+      http:
+        paths:
+          - pathType: Prefix
+            path: '/api/categorization' // sesuaikan path
+            backend:
+              service:
+                name: backend-categorization
+                port:
+                  number: 3000    //// sesuaikan port
