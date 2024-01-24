@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+metadata:
+  name: backend-categorization
+  namespace: learning
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend-categorization
+  template:
+    metadata:
+      labels:
+        app: backend-categorization
+    spec:
+      containers:
+      - name: backend-categorization
+        image: 192.168.56.101:83/library/backend_categorization:latest
+        ports:
+          - containerPort: 3000
+            name: 3000tcp
+            protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /api/categorization
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /api/categorization
+            port: 3000
+          initialDelaySeconds: 10
+          periodSeconds: 15
+      imagePullSecrets:
+      - name: credlearning
+
+
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/name: backend-categorization
+  name: backend-categorization
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3000
+      targetPort: 3000
+      protocol: TCP
+  selector:
+    app: backend-categorization
